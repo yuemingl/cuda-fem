@@ -11,26 +11,16 @@
 #define N 16
 #define NE 18 //number of elements
 
-#define BLOCK_X 6 // number of integration points
+#define BLOCK_X 7 // number of integration points
 #define BLOCK_Y 9 // number of expressions
-#define BLOCK_Z ((int)(32*32)/(6*9)) //number of elements in a block
+#define BLOCK_Z ((int)(32*32)/(BLOCK_X*BLOCK_Y)) //number of elements in a block
 #define NDOF 3 //number of DOFs
 #define NNODE 3 //number of nodes
 
-//TODO
 __constant__ float triW[7] = { 0.06296959f, 0.06619708f, 0.06296959f, 0.06619708f, 0.06296959f, 0.06619708f, 0.11250000f };
 __constant__ float triR[7] = { 0.10128651f, 0.47014206f, 0.79742699f, 0.47014206f, 0.10128651f, 0.05971587f, 0.33333333f };
 __constant__ float triS[7] = { 0.10128651f, 0.05971587f, 0.10128651f, 0.47014206f, 0.79742699f, 0.47014206f, 0.33333333f };
-__constant__ float triT[7] = { 
-	1.0f-triR[0]-triS[0],
-	1.0f-triR[1]-triS[1],
-	1.0f-triR[2]-triS[2],
-	1.0f-triR[3]-triS[3],
-	1.0f-triR[4]-triS[4],
-	1.0f-triR[5]-triS[5],
-	1.0f-triR[6]-triS[6]
-};
-
+__constant__ float triT[7] = { 0.79742698f, 0.47014207f, 0.1012865f,  0.05971588f, 0.1012865f,  0.47014207f, 0.33333334f };
 
 //This function should be generated from the symbol expressions of the integrand
 __device__ float integrand(int funIdx, float *params)
@@ -88,8 +78,8 @@ __device__ float integrand(int funIdx, float *params)
 }
 
 //Version 2: user global memory directly
-__global__ void fea_kernel(double* A, 
-		double *X, double *Y, // (x,y) of each element for all the element
+__global__ void fea_kernel(float* A, 
+		float *X, float *Y, // (x,y) of each element for all the element
 		int *gIdx // node index of each element for all the element
 	)
 {
@@ -98,7 +88,7 @@ __global__ void fea_kernel(double* A,
 	//threadIdx.y = 0,1,2,3,4,5,6,7,8
 	int li = threadIdx.y / NDOF;
 	int lj = threadIdx.y / NDOF;
-	__shared__ localFlatMatrix[BLOCK_Y*BLOCK_Z]; //array for the local flat matrices of all the elememnts in the current block
+	__shared__ float localFlatMatrix[BLOCK_Y*BLOCK_Z]; //array for the local flat matrices of all the elememnts in the current block
 	int lfmIdx = threadIdx.z*BLOCK_Y + threadIdx.y; //local flat matrix index of the integrand of threadIdx.y
 	float params[3*NNODE]; //parameters array of integrand
 
@@ -151,6 +141,17 @@ cudaError_t assembleWithCuda()
     float *Y  = (float*)malloc( NE*NNODE*sizeof(float) );
     int *gIdx = (int*)malloc( NE*NNODE*sizeof(int) );
 
+    srand((int)time(NULL));
+
+    for(int i=0; i<M*N; i++)
+    	A[i] = 0.0f;
+    for(int i=0; i<NE*NNODE; i++)
+    	X[i] = (float)rand();
+    for(int i=0; i<NE*NNODE; i++)
+    	Y[i] = (float)rand();
+    for(int i=0; i<NE*NNODE; i++)
+    	gIdx[i] = i%M;
+
     float *dA = NULL;
     cudaMalloc((void**)&dA, M*N*sizeof(float));
     float *dX = NULL;
@@ -180,6 +181,8 @@ cudaError_t assembleWithCuda()
 
     cudaDeviceSynchronize();
     cudaStatus = cudaMemcpy(A, dA, M*N*sizeof(float), cudaMemcpyDeviceToHost);
+    for(int i=0; i<NE*NNODE; i++)
+    	printf("%f\n", A[i]);
 
     cudaFree(dA);
     cudaFree(dX);
