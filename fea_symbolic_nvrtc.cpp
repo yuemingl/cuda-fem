@@ -479,8 +479,7 @@ extern \"C\" __global__ void fea_kernel(float* A,                               
 //////////////////////////////////////////////////////////////
 /*
 export CUDA_PATH=/usr/local/cuda-9.1
-g++ fea_symbolic_nvrtc.cpp -o fea_symbolic_nvrtc -I $CUDA_PATH/include -L $CUDA_PATH/lib64 -lnvrtc -lcuda -Wl,-rpath,$CUDA_PATH/lib64
-*/
+g++ --std=c++11 fea_symbolic_nvrtc.cpp -o fea_symbolic_nvrtc -I $CUDA_PATH/include -L $CUDA_PATH/lib64 -lginac -lnvrtc -lcuda -Wl,-rpath,$CUDA_PATH/lib64*/
 int main()
 {
 
