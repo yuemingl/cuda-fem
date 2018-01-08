@@ -216,9 +216,9 @@ __device__ float integrand(int funIdx, float *params)
 
 
 //Version 2: user global memory directly
-__global__ void fea_kernel(int M, int N, double* A, 
+__global__ void fea_kernel(int M, int N, float* A, 
 		int NE, //number of elements
-		double *X, double *Y, // (x,y) of each element for all the element
+		float *X, float *Y, // (x,y) of each element for all the element
 		int *gIdx // node index of each element for all the element
 	)
 {
@@ -226,7 +226,7 @@ __global__ void fea_kernel(int M, int N, double* A,
 	//local matrix row and column index
 	//threadIdx.y = 0,1,2,3,4,5,6,7,8
 	int li = threadIdx.y / NDOF;
-	int lj = threadIdx.y / NDOF;
+	int lj = threadIdx.y % NDOF;
 	__shared__ localFlatMatrix[BLOCK_Y*BLOCK_Z]; //array for the local flat matrices of all the elememnts in the current block
 	int lfmIdx = threadIdx.z*BLOCK_Y + threadIdx.y; //local flat matrix index of the integrand of threadIdx.y
 	float params[3*NNODE]; //parameters array of integrand
@@ -243,7 +243,7 @@ __global__ void fea_kernel(int M, int N, double* A,
 		params[6] = triR[threadIdx.x];
 		params[7] = triS[threadIdx.x];
 		params[8] = triT[threadIdx.x]; //triT[threadIdx.x]=1.0-triR[threadIdx.x]-triS[threadIdx.x];
-		atomicAdd( &localFlatMatrix[lfmIdx], triW[threadIdx.x]*integrand(threadIdx.x, params) );
+		atomicAdd( &localFlatMatrix[lfmIdx], triW[threadIdx.x]*integrand(threadIdx.y, params) );
 	}
 	__syncthreads();
 
@@ -262,9 +262,9 @@ __global__ void fea_kernel(int M, int N, double* A,
 
 
 //Version 3: use shared memory
-__global__ void fea_kernel(int M, int N, double* A, 
+__global__ void fea_kernel(int M, int N, float* A, 
 		int NE, //number of elements
-		double *X, double *Y, // (x,y) of each element for all the element
+		float *X, float *Y, // (x,y) of each element for all the element
 		int *gIdx // node index of each element for all the element
 	)
 {
@@ -295,13 +295,13 @@ __global__ void fea_kernel(int M, int N, double* A,
 	//local matrix row and column index
 	//threadIdx.y = 0,1,2,3,4,5,6,7,8 (BLOCK_Y)
 	int li = threadIdx.y / NDOF;
-	int lj = threadIdx.y / NDOF;
-	__shared__ localFlatMatrix[BLOCK_Y*BLOCK_Z]; //array for the local flat matrices of all the elememnts in the current block
+	int lj = threadIdx.y % NDOF;
+	__shared__ float localFlatMatrix[BLOCK_Y*BLOCK_Z]; //array for the local flat matrices of all the elememnts in the current block
 	int lfmIdx = threadIdx.z*BLOCK_Y + threadIdx.y; //local flat matrix index of the integrand of threadIdx.y
 	float params[3*NNODE]; //parameters array of integrand
 
 	//compute local matrix
-	if(eleIdx < NE)
+	if(gEleIdx < NE)
 	{
 #pragma unroll
 		for(int i=0; i<NNODE; i++)
@@ -315,12 +315,12 @@ __global__ void fea_kernel(int M, int N, double* A,
 		params[2*NNODE+1] = triS[threadIdx.x];
 		params[2*NNODE+2] = triT[threadIdx.x]; //triT[threadIdx.x]=1.0-triR[threadIdx.x]-triS[threadIdx.x];
 
-		atomicAdd( &localFlatMatrix[lfmIdx], triW[threadIdx.x]*integrand(threadIdx.x, params) );
+		atomicAdd( &localFlatMatrix[lfmIdx], triW[threadIdx.x]*integrand(threadIdx.y, params) );
 	}
 	__syncthreads();
 
 	//write to gobal matrix A
-	if(eleIdx < NE)
+	if(gEleIdx < NE)
 	{
 		if(threadIdx.x == 0)
 		{
