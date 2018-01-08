@@ -32,7 +32,6 @@ using namespace std;
     }                                                             \
   } while(0)
 
-
 /////////////////////////////////////////////////////////////////////
 
 static ex sfR_eval (const ex &x, const ex &y, const ex &x1, const ex &x2, const ex &x3, const ex &y1, const ex &y2, const ex &y3);
@@ -352,19 +351,110 @@ public:
 #define NNODE 3 //number of nodes
 
 const char *code = "                                           \n\
-extern \"C\"  __global__ void fea_kernel(float* A,                                                                                                       \n\
+__constant__ float triW[7] = { 0.06296959f, 0.06619708f, 0.06296959f, 0.06619708f, 0.06296959f, 0.06619708f, 0.11250000f };         \n\
+__constant__ float triR[7] = { 0.10128651f, 0.47014206f, 0.79742699f, 0.47014206f, 0.10128651f, 0.05971587f, 0.33333333f };         \n\
+__constant__ float triS[7] = { 0.10128651f, 0.05971587f, 0.10128651f, 0.47014206f, 0.79742699f, 0.47014206f, 0.33333333f };         \n\
+__constant__ float triT[7] = { 0.79742698f, 0.47014207f, 0.1012865f,  0.05971588f, 0.1012865f,  0.47014207f, 0.33333334f };         \n\
+__device__ float integrand(int funIdx, float *params)                                                                               \n\
+{                                                                                                                                   \n\
+  float x1 = params[0];                                                                                                             \n\
+  float x2 = params[1];                                                                                                             \n\
+  float x3 = params[2];                                                                                                             \n\
+  float y1 = params[3];                                                                                                             \n\
+  float y2 = params[4];                                                                                                             \n\
+  float y3 = params[5];                                                                                                             \n\
+  float r = params[6];                                                                                                              \n\
+  float s = params[7];                                                                                                              \n\
+  float t = params[8];                                                                                                              \n\
+  if(funIdx == 0)                                                                                                                   \n\
+    return -( 1.0/powf( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3),2.0)*powf( x2-x3,2.0)+powf( y2-y3,2.0)/powf( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3),2.0))*( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3));                                                                                                                                                                        \n\
+  if(funIdx == 1)                                                                                                                                                                                                                                                                                                                                                 \n\
+    return ( ( x1-x3)/powf( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3),2.0)*( x2-x3)+( y1-y3)*( y2-y3)/powf( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3),2.0))*( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3));                                                                                                                                                                           \n\
+  if(funIdx == 2)                                                                                                                                                                                                                                                                                                                                                 \n\
+    return ( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( ( y2-y3)*( ( y2-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( y1-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3)))/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( ( x1-x3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-1.0/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( x2-x3))/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( x2-x3));   \n\
+  if(funIdx == 3)                                                                                                                                                                                                                                                                                                                                                 \n\
+    return ( ( x1-x3)/powf( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3),2.0)*( x2-x3)+( y1-y3)*( y2-y3)/powf( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3),2.0))*( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3));                                                                                                                                                                           \n\
+  if(funIdx == 4)                                                                                                                                                                                                                                                                                                                                                 \n\
+    return -( powf( x1-x3,2.0)/powf( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3),2.0)+powf( y1-y3,2.0)/powf( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3),2.0))*( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3));                                                                                                                                                                            \n\
+  if(funIdx == 5)                                                                                                                                                                                                                                                                                                                                                 \n\
+    return ( ( ( x1-x3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-1.0/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( x2-x3))*( x1-x3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( y1-y3)*( ( y2-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( y1-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3)))/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3)))*( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3));   \n\
+  if(funIdx == 6)                                                                                                                                                                                                                                                                                                                                                 \n\
+    return ( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( ( y2-y3)*( ( y2-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( y1-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3)))/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( ( x1-x3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-1.0/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( x2-x3))/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( x2-x3));   \n\
+  if(funIdx == 7)                                                                                                                                                                                                                                                                                                                                                 \n\
+    return ( ( ( x1-x3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-1.0/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( x2-x3))*( x1-x3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( y1-y3)*( ( y2-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( y1-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3)))/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3)))*( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3));   \n\
+  if(funIdx == 8)                                                                                                                                                                                                                                                                                                                                                 \n\
+    return -( powf( ( x1-x3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-1.0/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( x2-x3),2.0)+powf( ( y2-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( y1-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3)),2.0))*( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3));                                                                                  \n\
+  return 0.0f;                                                                                                                             \n\
+}                                                                                                                                          \n\
+extern \"C\" __global__ void fea_kernel(float* A,                                                                                                       \n\
     float *X, float *Y,                                                                                                                    \n\
     int *gIdx                                                                                                                              \n\
   )                                                                                                                                        \n\
 {                                                                                                                                          \n\
+  __shared__ float sX[BLOCK_Z*NNODE];    //shared memory of copy of X in the current block                                                 \n\
+  __shared__ float sY[BLOCK_Z*NNODE];    //shared memory of copy of Y in the current block                                                 \n\
+  __shared__ float sGIdx[BLOCK_Z*NNODE]; //shared memory of copy of gIdx in the current block                                              \n\
+                                                                                                                                           \n\
+  int gEleIdx = BLOCK_Z*blockIdx.x + threadIdx.z; //global element index                                                                   \n\
+  int sEleIdx = NNODE*threadIdx.z;                //global element index in shared memory arrays: sX,sY,sGIdx                              \n\
+                                                                                                                                           \n\
+  // copy from global memory to shared memory for X, Y and gIdx                                                                            \n\
+  if(threadIdx.x==0 && threadIdx.y==0)                                                                                                     \n\
+  {                                                                                                                                        \n\
+    for(int i=0; i<NNODE; i++)                                                                                                             \n\
+      sX[sEleIdx+i]=X[NNODE*gEleIdx+i];                                                                                                    \n\
+                                                                                                                                           \n\
+    for(int i=0; i<NNODE; i++)                                                                                                             \n\
+      sY[sEleIdx+i]=Y[NNODE*gEleIdx+i];                                                                                                    \n\
+                                                                                                                                           \n\
+   for(int i=0; i<NNODE; i++)                                                                                                             \n\
+      sGIdx[sEleIdx+i]=gIdx[NNODE*gEleIdx+i];                                                                                              \n\
+  }                                                                                                                                        \n\
+  __syncthreads();                                                                                                                         \n\
+                                                                                                                                           \n\
+  //local matrix row and column index                                                                                                      \n\
+  //threadIdx.y = 0,1,2,3,4,5,6,7,8 (BLOCK_Y)                                                                                              \n\
+  int li = threadIdx.y / NDOF;                                                                                                             \n\
+  int lj = threadIdx.y % NDOF;                                                                                                             \n\
+  __shared__ float localFlatMatrix[BLOCK_Y*BLOCK_Z]; //array for the local flat matrices of all the elememnts in the current block         \n\
+  int lfmIdx = threadIdx.z*BLOCK_Y + threadIdx.y; //local flat matrix index of the integrand of threadIdx.y                                \n\
+  float params[3*NNODE]; //parameters array of integrand                                                                                   \n\
+                                                                                                                                           \n\
+  //compute local matrix                                                                                                                   \n\
+  if(gEleIdx < NE)                                                                                                                         \n\
+  {                                                                                                                                        \n\
+    for(int i=0; i<NNODE; i++)                                                                                                             \n\
+      params[i] = sX[sEleIdx+i];                                                                                                           \n\
+                                                                                                                                           \n\
+    for(int i=0; i<NNODE; i++)                                                                                                             \n\
+      params[NNODE+i] = sY[sEleIdx+i];                                                                                                     \n\
+                                                                                                                                           \n\
+    params[2*NNODE+0] = triR[threadIdx.x];                                                                                                 \n\
+    params[2*NNODE+1] = triS[threadIdx.x];                                                                                                 \n\
+    params[2*NNODE+2] = triT[threadIdx.x]; //triT[threadIdx.x]=1.0-triR[threadIdx.x]-triS[threadIdx.x];                                    \n\
+                                                                                                                                           \n\
+    atomicAdd( &localFlatMatrix[lfmIdx], triW[threadIdx.x]*integrand(threadIdx.y, params) );                                               \n\
+  }                                                                                                                                        \n\
+  __syncthreads();                                                                                                                         \n\
+                                                                                                                                           \n\
+  //write to gobal matrix A                                                                                                                \n\
+  if(gEleIdx < NE)                                                                                                                         \n\
+  {                                                                                                                                        \n\
+    if(threadIdx.x == 0)                                                                                                                   \n\
+    {                                                                                                                                      \n\
+      //global matrix row and column index                                                                                                 \n\
+      int gi  = sGIdx[sEleIdx + li];                                                                                                       \n\
+      int gj  = sGIdx[sEleIdx + lj];                                                                                                       \n\
+      atomicAdd( &A[N*gj + gi], localFlatMatrix[lfmIdx] );                                                                                 \n\
+    }                                                                                                                                      \n\
+  }                                                                                                                                        \n\
 }                                                                                                                                          \n\
                                                                                                                                            \n";
-
 
 //////////////////////////////////////////////////////////////
 /*
 export CUDA_PATH=/usr/local/cuda-9.1
-g++ --std=c++11 fea_symbolic_nvrtc.cpp -o fea_symbolic_nvrtc -I $CUDA_PATH/include -L $CUDA_PATH/lib64 -lnvrtc -lcuda -Wl,-rpath,$CUDA_PATH/lib64 -lginac
+g++ fea_symbolic_nvrtc.cpp -o fea_symbolic_nvrtc -I $CUDA_PATH/include -L $CUDA_PATH/lib64 -lnvrtc -lcuda -Wl,-rpath,$CUDA_PATH/lib64
 */
 int main()
 {
@@ -379,9 +469,19 @@ int main()
                        NULL));        // includeNames
   // Compile the program for compute_30 with fmad disabled.
   const char *opts[] = {"--gpu-architecture=compute_30",
-                        "--fmad=false"};
+                        "--define-macro=MESH_W=4",
+                        "--define-macro=MESH_H=4",
+                        "--define-macro=M=(MESH_W+1)*(MESH_H+1)",
+                        "--define-macro=N=(MESH_W+1)*(MESH_H+1)",
+                        "--define-macro=NE=2*MESH_W*MESH_H",
+                        "--define-macro=BLOCK_X=7",
+                        "--define-macro=BLOCK_Y=9",
+                        "--define-macro=BLOCK_Z=((int)(32*32)/(BLOCK_X*BLOCK_Y))",
+                        "--define-macro=NDOF=3",
+                        "--define-macro=NNODE=3",
+                        "--fmad=false" };
   nvrtcResult compileResult = nvrtcCompileProgram(prog,  // prog
-                                                  2,     // numOptions
+                                                  12,     // numOptions
                                                   opts); // options
   // Obtain compilation log from the program.
   size_t logSize;
