@@ -4,10 +4,9 @@
 #include <ginac/ginac.h>
 #include <chrono>
 #include <sstream> // std::ostringstream
-#include <stdio.h>
+
 #include <nvrtc.h>
 #include <cuda.h>
-#include <string>
 
 using namespace GiNaC;
 using namespace std;
@@ -34,17 +33,6 @@ using namespace std;
   } while(0)
 
 /////////////////////////////////////////////////////////////////////
-std::string ReplaceAll(std::string str, const std::string& from, const std::string& to) {
-    size_t start_pos = 0;
-    while((start_pos = str.find(from, start_pos)) != std::string::npos) {
-        str.replace(start_pos, from.length(), to);
-        start_pos += to.length(); // Handles case where 'to' is a substring of 'from'
-    }
-    return str;
-}
-
-/////////////////////////////////////////////////////////////////////
-
 
 static ex sfR_eval (const ex &x, const ex &y, const ex &x1, const ex &x2, const ex &x3, const ex &y1, const ex &y2, const ex &y3);
 static ex sfR_deriv(const ex &x, const ex &y, const ex &x1, const ex &x2, const ex &x3, const ex &y1, const ex &y2, const ex &y3, unsigned diff_param);
@@ -295,15 +283,13 @@ public:
   FunctionSpace funcSpace;
   ex lhs[3][3];
   ex rhs[3];
-  std::string codeTemplate;
 
-  WeakForm(FunctionSpace &funcSpace, std::string &codeTemplate)
+  WeakForm(FunctionSpace &funcSpace) 
   {
     this->funcSpace = funcSpace;
-    this->codeTemplate = codeTemplate;
   }
 
-  void build(std::function<ex(ex,ex)> _lhs, std::function<ex(ex)> _rhs)
+  void build(std::function<ex(ex,ex)> _lhs, std::function<ex(ex)> _rhs) 
   {
     lst sfuncs = funcSpace.getShapeFunctions();
     ex sfr = sfuncs[0];
@@ -337,25 +323,14 @@ public:
         //cout<<csrc_float<<lhs[j][i]<<endl;
         oss.str(""); oss.clear();
         oss<<csrc_float<<lhs[j][i]<<endl;
-        //std::cout << oss.str().c_str();
-        char keyWord[50];
-        sprintf(keyWord, "$integrand%d%d$",i,j);
-        codeTemplate = ReplaceAll(codeTemplate, std::string((char*)keyWord), std::string(oss.str().c_str()));
+        std::cout << oss.str().c_str();
       }
       rhs[j] = _rhs(sfuncs[j]).subs(lst(sfr==r, sfs==s)).subs(lst(x==fx, y==fy))*jac;
       //cout<<csrc_float<<rhs[j]<<endl;
       oss.str(""); oss.clear();
       oss<<csrc_float<<rhs[j]<<endl;
-      //std::cout << oss.str().c_str();
-      //codeTemplate = ReplaceAll(codeTemplate, std::string(sprintf("$integrand%d%d$",???j)), std::string(oss.str().c_str()));
+      std::cout << oss.str().c_str();
     }
-    codeTemplate = ReplaceAll(codeTemplate, std::string("pow"), std::string("powf"));
-    std::cout << codeTemplate << std::endl;
-
-  }
-
-  const char* getCode() {
-    return this->codeTemplate.c_str();
   }
 
 };
@@ -375,7 +350,7 @@ public:
 #define NDOF 3 //number of DOFs
 #define NNODE 3 //number of nodes
 
-std::string codeTemplate("                                           \n\
+const char *code = "                                           \n\
 __constant__ float triW[7] = { 0.06296959f, 0.06619708f, 0.06296959f, 0.06619708f, 0.06296959f, 0.06619708f, 0.11250000f };         \n\
 __constant__ float triR[7] = { 0.10128651f, 0.47014206f, 0.79742699f, 0.47014206f, 0.10128651f, 0.05971587f, 0.33333333f };         \n\
 __constant__ float triS[7] = { 0.10128651f, 0.05971587f, 0.10128651f, 0.47014206f, 0.79742699f, 0.47014206f, 0.33333333f };         \n\
@@ -392,26 +367,26 @@ __device__ float integrand(int funIdx, float *params)                           
   float s = params[7];                                                                                                              \n\
   float t = params[8];                                                                                                              \n\
   if(funIdx == 0)                                                                                                                   \n\
-    return $integrand00$;    \n\
-  if(funIdx == 1)            \n\
-    return $integrand01$;    \n\
-  if(funIdx == 2)            \n\
-    return $integrand02$;    \n\
-  if(funIdx == 3)            \n\
-    return $integrand10$;    \n\
-  if(funIdx == 4)            \n\
-    return $integrand11$;    \n\
-  if(funIdx == 5)            \n\
-    return $integrand12$;    \n\
-  if(funIdx == 6)            \n\
-    return $integrand20$;    \n\
-  if(funIdx == 7)            \n\
-    return $integrand21$;    \n\
-  if(funIdx == 8)            \n\
-    return $integrand22$;    \n\
+    return -( 1.0/powf( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3),2.0)*powf( x2-x3,2.0)+powf( y2-y3,2.0)/powf( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3),2.0))*( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3));                                                                                                                                                                        \n\
+  if(funIdx == 1)                                                                                                                                                                                                                                                                                                                                                 \n\
+    return ( ( x1-x3)/powf( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3),2.0)*( x2-x3)+( y1-y3)*( y2-y3)/powf( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3),2.0))*( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3));                                                                                                                                                                           \n\
+  if(funIdx == 2)                                                                                                                                                                                                                                                                                                                                                 \n\
+    return ( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( ( y2-y3)*( ( y2-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( y1-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3)))/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( ( x1-x3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-1.0/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( x2-x3))/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( x2-x3));   \n\
+  if(funIdx == 3)                                                                                                                                                                                                                                                                                                                                                 \n\
+    return ( ( x1-x3)/powf( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3),2.0)*( x2-x3)+( y1-y3)*( y2-y3)/powf( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3),2.0))*( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3));                                                                                                                                                                           \n\
+  if(funIdx == 4)                                                                                                                                                                                                                                                                                                                                                 \n\
+    return -( powf( x1-x3,2.0)/powf( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3),2.0)+powf( y1-y3,2.0)/powf( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3),2.0))*( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3));                                                                                                                                                                            \n\
+  if(funIdx == 5)                                                                                                                                                                                                                                                                                                                                                 \n\
+    return ( ( ( x1-x3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-1.0/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( x2-x3))*( x1-x3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( y1-y3)*( ( y2-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( y1-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3)))/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3)))*( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3));   \n\
+  if(funIdx == 6)                                                                                                                                                                                                                                                                                                                                                 \n\
+    return ( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( ( y2-y3)*( ( y2-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( y1-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3)))/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( ( x1-x3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-1.0/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( x2-x3))/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( x2-x3));   \n\
+  if(funIdx == 7)                                                                                                                                                                                                                                                                                                                                                 \n\
+    return ( ( ( x1-x3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-1.0/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( x2-x3))*( x1-x3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( y1-y3)*( ( y2-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( y1-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3)))/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3)))*( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3));   \n\
+  if(funIdx == 8)                                                                                                                                                                                                                                                                                                                                                 \n\
+    return -( powf( ( x1-x3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-1.0/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))*( x2-x3),2.0)+powf( ( y2-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3))-( y1-y3)/( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3)),2.0))*( ( y1-y3)*( x2-x3)-( y2-y3)*( x1-x3));                                                                                  \n\
   return 0.0f;                                                                                                                             \n\
 }                                                                                                                                          \n\
-extern \"C\" __global__ void fea_kernel(float* A,                                                                                          \n\
+extern \"C\" __global__ void fea_kernel(float* A,                                                                                                       \n\
     float *X, float *Y,                                                                                                                    \n\
     int *gIdx                                                                                                                              \n\
   )                                                                                                                                        \n\
@@ -432,7 +407,7 @@ extern \"C\" __global__ void fea_kernel(float* A,                               
     for(int i=0; i<NNODE; i++)                                                                                                             \n\
       sY[sEleIdx+i]=Y[NNODE*gEleIdx+i];                                                                                                    \n\
                                                                                                                                            \n\
-   for(int i=0; i<NNODE; i++)                                                                                                              \n\
+   for(int i=0; i<NNODE; i++)                                                                                                             \n\
       sGIdx[sEleIdx+i]=gIdx[NNODE*gEleIdx+i];                                                                                              \n\
   }                                                                                                                                        \n\
   __syncthreads();                                                                                                                         \n\
@@ -474,7 +449,7 @@ extern \"C\" __global__ void fea_kernel(float* A,                               
     }                                                                                                                                      \n\
   }                                                                                                                                        \n\
 }                                                                                                                                          \n\
-                                                                                                                                           \n");
+                                                                                                                                           \n";
 
 //////////////////////////////////////////////////////////////
 /*
@@ -483,26 +458,11 @@ g++ fea_symbolic_nvrtc.cpp -o fea_symbolic_nvrtc -I $CUDA_PATH/include -L $CUDA_
 */
 int main()
 {
-
-  RectangleMesh mesh(-3.0, 3.0, -3.0, 3.0, MESH_W, MESH_H);
-  mesh.printMesh();
-
-  symbol x("x"), y("y");
-  ex f = -2*(x*x + y*y) + 36; //Right hand side(RHS)
-
-  FunctionSpace fs = FunctionSpace(mesh, lst(x, y), "Lagrange", 1);
-
-  WeakForm wf(fs, codeTemplate);
-  wf.build(
-    [&](ex u, ex v) { return dot(grad(u,x,y), grad(v,x,y)); },
-    [&](ex v) { return f*v; }
-  );
-
   // Create an instance of nvrtcProgram with the SAXPY code string.
   nvrtcProgram prog;
   NVRTC_SAFE_CALL(
     nvrtcCreateProgram(&prog,         // prog
-                       wf.getCode(),         // buffer
+                       code,         // buffer
                        "code.cu",    // name
                        0,             // numHeaders
                        NULL,          // headers
@@ -553,7 +513,21 @@ int main()
   CUDA_SAFE_CALL(cuModuleLoadDataEx(&module, ptx, 0, 0, 0));
   CUDA_SAFE_CALL(cuModuleGetFunction(&kernel, module, "fea_kernel"));
 
-// Generate input for execution, and create output buffers.
+  // Generate input for execution, and create output buffers.
+  RectangleMesh mesh(-3.0, 3.0, -3.0, 3.0, MESH_W, MESH_H);
+  mesh.printMesh();
+
+  symbol x("x"), y("y");
+  ex f = -2*(x*x + y*y) + 36; //Right hand side(RHS)
+
+  FunctionSpace fs = FunctionSpace(mesh, lst(x, y), "Lagrange", 1);
+
+  WeakForm wf(fs);
+  wf.build(
+    [&](ex u, ex v) { return dot(grad(u,x,y), grad(v,x,y)); },
+    [&](ex v) { return f*v; }
+  );
+
   float *A  = new float[ M*N*sizeof(float) ];
   float *X  = new float[ NE*NNODE*sizeof(float) ];
   float *Y  = new float[ NE*NNODE*sizeof(float) ];
@@ -584,7 +558,7 @@ int main()
   CUDA_SAFE_CALL(cuMemcpyHtoD(dY, Y, NE*NNODE*sizeof(float)));
   CUDA_SAFE_CALL(cuMemcpyHtoD(dGIdx, gIdx, NE*NNODE*sizeof(int)));
 
-  // Execute kernal.
+  // Execute SAXPY.
   void *args[] = { &dA, &dX, &dY, &dGIdx};
   CUDA_SAFE_CALL(
     cuLaunchKernel(kernel,
