@@ -490,7 +490,7 @@ int main()
                        NULL,          // headers
                        NULL));        // includeNames
   // Compile the program for compute_30 with fmad disabled.
-  const char *opts[] = {"--gpu-architecture=compute_72",
+  const char *opts[] = {"--gpu-architecture=compute_30",
                         "--fmad=false"};
   nvrtcResult compileResult = nvrtcCompileProgram(prog,  // prog
                                                   2,     // numOptions
@@ -566,8 +566,8 @@ int main()
   CUDA_SAFE_CALL(cuMemAlloc(&dX, NE*NNODE*sizeof(float)));
   CUDA_SAFE_CALL(cuMemAlloc(&dY, NE*NNODE*sizeof(float)));
   CUDA_SAFE_CALL(cuMemAlloc(&dGIdx, NE*NNODE*sizeof(int)));
-  CUDA_SAFE_CALL(cuMemcpyHtoD(dX, X, NE*NNODE*sizeof(int));
-  CUDA_SAFE_CALL(cuMemcpyHtoD(dY, Y, NE*NNODE*sizeof(int)));
+  CUDA_SAFE_CALL(cuMemcpyHtoD(dX, X, NE*NNODE*sizeof(float));
+  CUDA_SAFE_CALL(cuMemcpyHtoD(dY, Y, NE*NNODE*sizeof(float)));
   CUDA_SAFE_CALL(cuMemcpyHtoD(dGIdx, gIdx, NE*NNODE*sizeof(int)));
 
   // Execute SAXPY.
