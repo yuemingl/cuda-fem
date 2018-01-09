@@ -362,8 +362,8 @@ public:
 
 //////////////////////////////////////////////////////////////
 
-#define MESH_W 4
-#define MESH_H 4
+#define MESH_W 120L
+#define MESH_H 120L
 
 #define M (MESH_W+1)*(MESH_H+1) //size of matrix A M by N
 #define N (MESH_W+1)*(MESH_H+1)
@@ -484,7 +484,7 @@ int main()
 {
 
   RectangleMesh mesh(-3.0, 3.0, -3.0, 3.0, MESH_W, MESH_H);
-  mesh.printMesh();
+  //mesh.printMesh();
 
   symbol x("x"), y("y");
   ex f = -2*(x*x + y*y) + 36; //Right hand side(RHS)
@@ -508,8 +508,8 @@ int main()
                        NULL));        // includeNames
   // Compile the program for compute_30 with fmad disabled.
   const char *opts[] = {"--gpu-architecture=compute_30",
-                        "--define-macro=MESH_W=4",
-                        "--define-macro=MESH_H=4",
+                        "--define-macro=MESH_W=120",
+                        "--define-macro=MESH_H=120",
                         "--define-macro=M=(MESH_W+1)*(MESH_H+1)",
                         "--define-macro=N=(MESH_W+1)*(MESH_H+1)",
                         "--define-macro=NE=2*MESH_W*MESH_H",
@@ -592,7 +592,7 @@ int main()
   CUDA_SAFE_CALL(cuEventRecord(start, 0));
   CUDA_SAFE_CALL(
     cuLaunchKernel(kernel,
-                   2, 1, 1,    // grid dim
+                   (NE+BLOCK_Z-1)/BLOCK_Z, 1, 1,    // grid dim
                    BLOCK_X, BLOCK_Y, BLOCK_Z,   // block dim
                    0, NULL,             // shared mem and stream
                    args, 0));           // arguments
@@ -605,12 +605,13 @@ int main()
 
   // Retrieve and print output.
   CUDA_SAFE_CALL(cuMemcpyDtoH(A, dA, M*N*sizeof(float)));
-  for(size_t i=0; i<M; i++) {
-    for(size_t j=0; j<N; j++) {
-      std::cout << A[i*N+j] << " ";
-    }
-    std::cout << std::endl;
-  }
+
+  //for(size_t i=0; i<M; i++) {
+  //  for(size_t j=0; j<N; j++) {
+  //    std::cout << A[i*N+j] << " ";
+  //  }
+  //  std::cout << std::endl;
+  //}
 
   // Release resources.
   CUDA_SAFE_CALL(cuMemFree(dA));
