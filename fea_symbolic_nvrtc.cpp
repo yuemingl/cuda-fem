@@ -606,12 +606,12 @@ int main()
   // Retrieve and print output.
   CUDA_SAFE_CALL(cuMemcpyDtoH(A, dA, M*N*sizeof(float)));
 
-  //for(size_t i=0; i<M; i++) {
-  //  for(size_t j=0; j<N; j++) {
-  //    std::cout << A[i*N+j] << " ";
-  //  }
-  //  std::cout << std::endl;
-  //}
+  for(size_t i=0; i<16; i++) {
+    for(size_t j=0; j<16; j++) {
+      std::cout << A[i*N+j] << " ";
+    }
+    std::cout << std::endl;
+  }
 
   // Release resources.
   CUDA_SAFE_CALL(cuMemFree(dA));
