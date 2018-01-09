@@ -326,7 +326,7 @@ public:
     ex x3 = funcSpace.nodeCoords[2];
     ex y1 = funcSpace.nodeCoords[3];
     ex y2 = funcSpace.nodeCoords[4];
-    ex y3 = funcSpace.nodeCoords[5];    
+    ex y3 = funcSpace.nodeCoords[5];
     argsOrder = x1,x2,x3,y1,y2,y3,r,s;
     std::ostringstream oss;
     for(int j=0; j<nDOFs; j++) 
@@ -585,12 +585,22 @@ int main()
 
   // Execute kernal.
   void *args[] = { &dA, &dX, &dY, &dGIdx};
+  CUevent start, stop;
+  float elapsed = 0;
+  CUDA_SAFE_CALL(cuEventCreate(&start,CU_EVENT_DEFAULT));
+  CUDA_SAFE_CALL(cuEventCreate(&stop,CU_EVENT_DEFAULT));
+  CUDA_SAFE_CALL(cuEventRecord(start, 0));
   CUDA_SAFE_CALL(
     cuLaunchKernel(kernel,
                    2, 1, 1,    // grid dim
                    BLOCK_X, BLOCK_Y, BLOCK_Z,   // block dim
                    0, NULL,             // shared mem and stream
                    args, 0));           // arguments
+  CUDA_SAFE_CALL(cuEventRecord(stop, 0));
+  CUDA_SAFE_CALL(cuEventSynchronize(stop));
+  CUDA_SAFE_CALL(cuEventElapsedTime(&elapsed, start, stop));
+  std::cout << "GPU Time: " << elapsed << "ms" << std::endl;
+  
   CUDA_SAFE_CALL(cuCtxSynchronize());
 
   // Retrieve and print output.
