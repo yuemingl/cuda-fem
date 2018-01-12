@@ -558,7 +558,7 @@ int main()
   CUDA_SAFE_CALL(cuMemcpyHtoD(dY, Y, NE*NNODE*sizeof(float)));
   CUDA_SAFE_CALL(cuMemcpyHtoD(dGIdx, gIdx, NE*NNODE*sizeof(int)));
 
-  // Execute SAXPY.
+  // Execute kernal.
   void *args[] = { &dA, &dX, &dY, &dGIdx};
   CUDA_SAFE_CALL(
     cuLaunchKernel(kernel,

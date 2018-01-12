@@ -351,7 +351,7 @@ public:
 #define NNODE 3 //number of nodes
 
 const char *code = "                                           \n\
-extern \"C\"  __global__ void fea_kernel(float* A,                                                                                                       \n\
+extern \"C\" __global__ void fea_kernel(float* A,                                                                                                       \n\
     float *X, float *Y,                                                                                                                    \n\
     int *gIdx                                                                                                                              \n\
   )                                                                                                                                        \n\
@@ -457,7 +457,7 @@ int main()
   CUDA_SAFE_CALL(cuMemcpyHtoD(dY, Y, NE*NNODE*sizeof(float)));
   CUDA_SAFE_CALL(cuMemcpyHtoD(dGIdx, gIdx, NE*NNODE*sizeof(int)));
 
-  // Execute SAXPY.
+  // Execute kernal.
   void *args[] = { &dA, &dX, &dY, &dGIdx};
   CUDA_SAFE_CALL(
     cuLaunchKernel(kernel,
