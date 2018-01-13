@@ -1,3 +1,4 @@
+//global memory only
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
@@ -269,8 +270,6 @@ cudaError_t assembleWithCuda()
     float *X  = (float*)malloc( NE*NNODE*sizeof(float) );
     float *Y  = (float*)malloc( NE*NNODE*sizeof(float) );
     int *gIdx = (int*)malloc( NE*NNODE*sizeof(int) );
-
-    srand((int)time(NULL));
 
     for(int i=0; i<M*N; i++)
     	A[i] = 0.0f;

@@ -1,3 +1,4 @@
+//ginac + nvcc
 #include <iostream>
 #include <ctime>
 #include <vector>
@@ -508,8 +509,6 @@ cudaError_t assembleWithCuda()
     float *X  = (float*)malloc( NE*NNODE*sizeof(float) );
     float *Y  = (float*)malloc( NE*NNODE*sizeof(float) );
     int *gIdx = (int*)malloc( NE*NNODE*sizeof(int) );
-
-    srand((int)time(NULL));
 
     for(int i=0; i<M*N; i++)
       A[i] = 0.0f;

@@ -1,3 +1,4 @@
+//ginac + template + sparse metrix
 #include <iostream>
 #include <ctime>
 #include <vector>
@@ -563,9 +564,6 @@ int main()
   int *rowA  = new int[ NE*(NNODE*NNODE)*sizeof(int) ];
   int *colA  = new int[ NE*(NNODE*NNODE)*sizeof(int) ];
   float *A  = new float[ NE*(NNODE*NNODE)*sizeof(float) ];
-
-  for(int i=0; i<NE*(NNODE*NNODE); i++)
-    A[i] = 0.0f;
 
   for(int i=0; i<mesh.elements.size(); i++)
   {

@@ -11,16 +11,18 @@
 
 using namespace std;
 
-#define MESH_W 4
-#define MESH_H 4
+#define MESH_W 500
+#define MESH_H 500
 
 #define M (MESH_W+1)*(MESH_H+1) //size of matrix A M by N
 #define N (MESH_W+1)*(MESH_H+1)
 #define NE 2*MESH_W*MESH_H //number of elements
 
+#define K20 192
 #define BLOCK_X 7 // number of integration points
 #define BLOCK_Y 9 // number of expressions
-#define BLOCK_Z ((int)(32*32)/(BLOCK_X*BLOCK_Y)) //number of elements in a block
+//#define BLOCK_Z ((int)(32*32)/(BLOCK_X*BLOCK_Y)) //number of elements in a block
+#define BLOCK_Z (K20/(BLOCK_X*BLOCK_Y)) //number of elements in a block
 #define NDOF 3 //number of DOFs
 #define NNODE 3 //number of nodes
 
@@ -28,7 +30,6 @@ __constant__ float triW[7] = { 0.06296959f, 0.06619708f, 0.06296959f, 0.06619708
 __constant__ float triR[7] = { 0.10128651f, 0.47014206f, 0.79742699f, 0.47014206f, 0.10128651f, 0.05971587f, 0.33333333f };
 __constant__ float triS[7] = { 0.10128651f, 0.05971587f, 0.10128651f, 0.47014206f, 0.79742699f, 0.47014206f, 0.33333333f };
 __constant__ float triT[7] = { 0.79742698f, 0.47014207f, 0.1012865f,  0.05971588f, 0.1012865f,  0.47014207f, 0.33333334f };
-
 
 class Node 
 {
@@ -172,9 +173,18 @@ __device__ float integrand(int funIdx, float *params)
 	return 0.0f;
 }
 
+__global__ void fea_kernel2(float* A,
+    int *rowA, int *colA,
+                float *X, float *Y, // (x,y) of each element for all the element
+                int *gIdx // node index of each element for all the element
+        )
+{
+  printf("%d %d %d %d\n", threadIdx.x, threadIdx.y, threadIdx.z, blockIdx.x);
+}
 
 //Version 3: use shared memory
-__global__ void fea_kernel(float* A, 
+__global__ void fea_kernel(float* A,
+    int *rowA, int *colA,
 		float *X, float *Y, // (x,y) of each element for all the element
 		int *gIdx // node index of each element for all the element
 	)
@@ -235,10 +245,12 @@ __global__ void fea_kernel(float* A,
 	{
 		if(threadIdx.x == 0)
 		{
-			//global matrix row and column index
-			int gi  = sGIdx[sEleIdx + li];
-			int gj  = sGIdx[sEleIdx + lj];
-			atomicAdd( &A[N*gj + gi], localFlatMatrix[lfmIdx] );
+      //global matrix row and column index
+      int gi  = sGIdx[sEleIdx + li];
+      int gj  = sGIdx[sEleIdx + lj];
+      rowA[gEleIdx*(NNODE*NNODE) + threadIdx.y] = gi;
+      colA[gEleIdx*(NNODE*NNODE) + threadIdx.y] = gj;
+      A[gEleIdx*(NNODE*NNODE) + threadIdx.y]    = localFlatMatrix[lfmIdx];
 		}
 	}
 }
@@ -259,15 +271,15 @@ cudaError_t assembleWithCuda()
     cudaSetDevice(0);
 
     RectangleMesh mesh(-3.0, 3.0, -3.0, 3.0, MESH_W, MESH_H);
-    mesh.printMesh();
+    //mesh.printMesh();
 
-    float *A  = (float*)malloc( M*N*sizeof(float) );
     float *X  = (float*)malloc( NE*NNODE*sizeof(float) );
     float *Y  = (float*)malloc( NE*NNODE*sizeof(float) );
     int *gIdx = (int*)malloc( NE*NNODE*sizeof(int) );
+    float *A  = (float*)malloc( NE*(NNODE*NNODE)*sizeof(float) );
+    int *rowA = (int*)malloc( NE*(NNODE*NNODE)*sizeof(int) );
+    int *colA = (int*)malloc( NE*(NNODE*NNODE)*sizeof(int) );
 
-    for(int i=0; i<M*N; i++)
-    	A[i] = 0.0f;
     for(int i=0; i<mesh.elements.size(); i++)
     {
       Element *e = mesh.elements[i];
@@ -283,7 +295,11 @@ cudaError_t assembleWithCuda()
     }
 
     float *dA = NULL;
-    cudaMalloc((void**)&dA, M*N*sizeof(float));
+    cudaMalloc((void**)&dA, NE*(NNODE*NNODE)*sizeof(float));
+    int *dRowA = NULL;
+    cudaMalloc((void**)&dRowA, NE*(NNODE*NNODE)*sizeof(int));
+    int *dColA = NULL;
+    cudaMalloc((void**)&dColA, NE*(NNODE*NNODE)*sizeof(int));
     float *dX = NULL;
     cudaMalloc((void**)&dX, NE*NNODE*sizeof(float));
     float *dY = NULL;
@@ -291,7 +307,6 @@ cudaError_t assembleWithCuda()
     int *dGIdx = NULL;
     cudaMalloc((void**)&dGIdx, NE*NNODE*sizeof(int));
 
-    cudaMemcpy(dA, A, M*N*sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(dX, X, NE*NNODE*sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(dY, Y, NE*NNODE*sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(dGIdx, gIdx, NE*NNODE*sizeof(int), cudaMemcpyHostToDevice);
@@ -300,25 +315,26 @@ cudaError_t assembleWithCuda()
     cudaEventCreate(&stop);
 
     cudaEventRecord(start);
-    fea_kernel << <2, dim_block >> >(dA, dX, dY, dGIdx); //bugfix 1 => 2
+    fea_kernel << <(NE+BLOCK_Z-1)/BLOCK_Z, dim_block >> >(dA, dRowA, dColA, dX, dY, dGIdx);
 
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
 
     cudaEventElapsedTime(&elapsed, start, stop);
-
     printf("GPU Time: %f ms\n", elapsed);
 
     cudaDeviceSynchronize();
-    cudaStatus = cudaMemcpy(A, dA, M*N*sizeof(float), cudaMemcpyDeviceToHost);
-    for(int i=0; i<M; i++) {
-    	for(int j=0; j<N; j++) {
-	    	printf("%f ", A[i*N+j]);
-    	}
-    	printf("\n");
+
+    cudaStatus = cudaMemcpy(A, dA, NE*(NNODE*NNODE)*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaStatus = cudaMemcpy(rowA, dRowA, NE*(NNODE*NNODE)*sizeof(int), cudaMemcpyDeviceToHost);
+    cudaStatus = cudaMemcpy(colA, dColA, NE*(NNODE*NNODE)*sizeof(int), cudaMemcpyDeviceToHost);
+    for(size_t i=0; i<16; i++) {
+        std::cout << "(" << rowA[i] << "," << colA[i] << ")" << " " << A[i] << std::endl;
     }
 
     cudaFree(dA);
+    cudaFree(dRowA);
+    cudaFree(dColA);
     cudaFree(dX);
     cudaFree(dY);
     cudaFree(dGIdx);
@@ -326,7 +342,9 @@ cudaError_t assembleWithCuda()
     return cudaStatus;
 }
 
-
+// nvcc --std=c++11 fea_test_sm_sym_sparse.cu -o fea_test_sm_sym_sparse
+// /usr/local/cuda-8.0/bin/nvcc --std=c++11 fea_test_sm_sym_sparse.cu -o fea_test_sm_sym_sparse
+// /usr/local/cuda-9.1/bin/nvcc --std=c++11 fea_test_sm_sym_sparse.cu -o fea_test_sm_sym_sparse
 int main()
 {
     assembleWithCuda();

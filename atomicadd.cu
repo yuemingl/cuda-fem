@@ -10,8 +10,8 @@ cudaError_t reductionWithCuda(float *result, float *input);
 __global__ void reductionKernel(float *result, float *input);
 void reductionCPU(float *result, float *input);
 
-#define SIZE 10000000
-//#define SIZE 50
+//#define SIZE 10000000
+#define SIZE 50
 
 #define BLOCK_X_NAIVE 32
 #define BLOCK_Y_NAIVE 32
@@ -89,10 +89,12 @@ __global__ void reductionKernel2(float *result, float *input)
     int row = blockDim.y * blockIdx.y + threadIdx.y;
     int sidx = threadIdx.x + BLOCK_X_NAIVE * threadIdx.y;
     int index = row * BLOCK_X_NAIVE * BLOCK_COUNT_X + col;
+    printf("(%d %d) (%d %d) (%d %d)\n",blockDim.x, blockDim.y, blockIdx.x, blockIdx.y, threadIdx.x, threadIdx.y);
     if(sidx < BLOCK_X_NAIVE*BLOCK_Y_NAIVE && index < SIZE)
     {
         smem[sidx] = input[index];
     }
+    __syncthreads();
     if (threadIdx.x == 0 && threadIdx.y == 0)
     {
         float localSum = 0;
@@ -101,6 +103,28 @@ __global__ void reductionKernel2(float *result, float *input)
           localSum += smem[i];
         }
         atomicAdd(result, localSum);
+    }
+}
+
+
+__global__ void reductionKernel3(double *result, double *input)
+{
+    int col = blockDim.x * blockIdx.x + threadIdx.x;
+    int row = blockDim.y * blockIdx.y + threadIdx.y;
+    int index = row * BLOCK_X_NAIVE * BLOCK_COUNT_X + col;
+
+
+   unsigned long long oldval, newval, readback;
+
+       if (index < SIZE)
+    {
+   oldval = __double_as_longlong(*result);
+   newval = __double_as_longlong(__longlong_as_double(oldval) + input[index]);
+   while ((readback=atomicCAS((unsigned long long *)result, oldval, newval)) != oldval)
+     {
+      oldval = readback;
+      newval = __double_as_longlong(__longlong_as_double(oldval) + input[index]);
+     }
     }
 }
 

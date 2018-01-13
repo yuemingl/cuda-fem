@@ -1,3 +1,4 @@
+//test ginac + nvrtc + hard code symbol output
 #include <iostream>
 #include <ctime>
 #include <vector>
