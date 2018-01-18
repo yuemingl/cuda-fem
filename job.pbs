@@ -1,0 +1,28 @@
+#PBS -S /bin/bash
+#PBS -N nvrtc
+### The above line defines the name of the job
+#PBS -l walltime=00:05:00,nodes=1:ppn=1,mem=12gb
+### The above asks for 1 processors on one node and 12gb of memory for xxx hours
+
+
+PROJECT=nvrtc
+
+CUEXE=/home/liu1/fea_test_sm_sym_sparse
+
+cd $PBS_O_WORKDIR
+
+printf "Current working directory is `pwd`\n"
+
+printf "Node file: $PBS_NODEFILE :"
+printf "\n#####################\n"
+cat $PBS_NODEFILE
+printf "#####################\n"
+
+CORES=`/bin/awk 'END {print NR}' $PBS_NODEFILE`
+printf "Running job $PBS_JOBID on $."
+
+printf "\nStarting run at: `date`\n"
+
+time mpiexec -n ${CORES} ${CUEXE}
+
+printf "\nProgram ${CUEXE} finished with exit code $? at: `date`\n"

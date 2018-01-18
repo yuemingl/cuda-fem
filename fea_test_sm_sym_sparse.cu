@@ -11,18 +11,16 @@
 
 using namespace std;
 
-#define MESH_W 500
-#define MESH_H 500
+#define MESH_W 10000
+#define MESH_H 1000
 
 #define M (MESH_W+1)*(MESH_H+1) //size of matrix A M by N
 #define N (MESH_W+1)*(MESH_H+1)
 #define NE 2*MESH_W*MESH_H //number of elements
 
-#define K20 192
 #define BLOCK_X 7 // number of integration points
 #define BLOCK_Y 9 // number of expressions
-//#define BLOCK_Z ((int)(32*32)/(BLOCK_X*BLOCK_Y)) //number of elements in a block
-#define BLOCK_Z (K20/(BLOCK_X*BLOCK_Y)) //number of elements in a block
+#define BLOCK_Z ((int)(32*32)/(BLOCK_X*BLOCK_Y)) //number of elements in a block
 #define NDOF 3 //number of DOFs
 #define NNODE 3 //number of nodes
 
@@ -294,6 +292,8 @@ cudaError_t assembleWithCuda()
       gIdx[NNODE*i+2] = e->nodes[2]->index;
     }
 
+    clock_t tStart, tCUMemAlloc, tMemHtoD, tMemDtoH;
+    tStart = clock();
     float *dA = NULL;
     cudaMalloc((void**)&dA, NE*(NNODE*NNODE)*sizeof(float));
     int *dRowA = NULL;
@@ -306,28 +306,44 @@ cudaError_t assembleWithCuda()
     cudaMalloc((void**)&dY, NE*NNODE*sizeof(float));
     int *dGIdx = NULL;
     cudaMalloc((void**)&dGIdx, NE*NNODE*sizeof(int));
+    tCUMemAlloc = clock() - tStart;
 
+    tStart = clock();
     cudaMemcpy(dX, X, NE*NNODE*sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(dY, Y, NE*NNODE*sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(dGIdx, gIdx, NE*NNODE*sizeof(int), cudaMemcpyHostToDevice);
-
+    tMemHtoD = clock() - tStart;
+    
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     cudaEventRecord(start);
-    fea_kernel << <(NE+BLOCK_Z-1)/BLOCK_Z, dim_block >> >(dA, dRowA, dColA, dX, dY, dGIdx);
+    //fea_kernel << <(NE+BLOCK_Z-1)/BLOCK_Z, dim_block >> >(dA, dRowA, dColA, dX, dY, dGIdx);
+    for(int i=0; i<((NE+BLOCK_Z-1)/BLOCK_Z)/65536; i++) {
+      //fea_kernel << <(NE+BLOCK_Z-1)/BLOCK_Z, dim_block >> >(dA, dRowA, dColA, dX, dY, dGIdx);
+      fea_kernel << <65535, dim_block >> >(dA, dRowA, dColA, dX, dY, dGIdx);
+    }
+    int rem_dim = ((NE+BLOCK_Z-1)/BLOCK_Z) % 65535;
+    fea_kernel << <rem_dim, dim_block >> >(dA, dRowA, dColA, dX, dY, dGIdx);
 
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
-
     cudaEventElapsedTime(&elapsed, start, stop);
-    printf("GPU Time: %f ms\n", elapsed);
-
     cudaDeviceSynchronize();
 
+    tStart = clock();
     cudaStatus = cudaMemcpy(A, dA, NE*(NNODE*NNODE)*sizeof(float), cudaMemcpyDeviceToHost);
     cudaStatus = cudaMemcpy(rowA, dRowA, NE*(NNODE*NNODE)*sizeof(int), cudaMemcpyDeviceToHost);
     cudaStatus = cudaMemcpy(colA, dColA, NE*(NNODE*NNODE)*sizeof(int), cudaMemcpyDeviceToHost);
+    tMemDtoH = clock() - tStart;
+
+    std::cout << "mesh = " << MESH_W << "*" << MESH_H << endl;
+    std::cout << "grid dim.x = " << (NE+BLOCK_Z-1)/BLOCK_Z << endl;
+    std::cout << "GPU Time: " << elapsed << "ms" << std::endl;
+    std::cout << "Time cuMemAlloc = " << tCUMemAlloc/1000.0 << "ms" << std::endl;
+    std::cout << "Time HtoD = " << tMemHtoD/1000.0 << "ms" << std::endl;
+    std::cout << "Time DtoH = " << tMemDtoH/1000.0 << "ms" << std::endl;
+
     for(size_t i=0; i<16; i++) {
         std::cout << "(" << rowA[i] << "," << colA[i] << ")" << " " << A[i] << std::endl;
     }

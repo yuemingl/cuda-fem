@@ -1,6 +1,6 @@
 //ginac + template
 #include <iostream>
-#include <ctime>
+#include <time.h>
 #include <vector>
 #include <ginac/ginac.h>
 #include <chrono>
@@ -363,8 +363,8 @@ public:
 
 //////////////////////////////////////////////////////////////
 
-#define MESH_W 120L
-#define MESH_H 120L
+#define MESH_W 90L
+#define MESH_H 90L
 
 #define M (MESH_W+1)*(MESH_H+1) //size of matrix A M by N
 #define N (MESH_W+1)*(MESH_H+1)
@@ -509,8 +509,8 @@ int main()
                        NULL));        // includeNames
   // Compile the program for compute_30 with fmad disabled.
   const char *opts[] = {"--gpu-architecture=compute_30",
-                        "--define-macro=MESH_W=120",
-                        "--define-macro=MESH_H=120",
+                        "--define-macro=MESH_W=90",
+                        "--define-macro=MESH_H=90",
                         "--define-macro=M=(MESH_W+1)*(MESH_H+1)",
                         "--define-macro=N=(MESH_W+1)*(MESH_H+1)",
                         "--define-macro=NE=2*MESH_W*MESH_H",
@@ -576,13 +576,19 @@ int main()
   }
 
   CUdeviceptr dA, dX, dY, dGIdx;
+  clock_t tStart, tCUMemAlloc, tMemHtoD, tMemDtoH;
+  tStart = clock();
   CUDA_SAFE_CALL(cuMemAlloc(&dA, M*N*sizeof(float)));
   CUDA_SAFE_CALL(cuMemAlloc(&dX, NE*NNODE*sizeof(float)));
   CUDA_SAFE_CALL(cuMemAlloc(&dY, NE*NNODE*sizeof(float)));
   CUDA_SAFE_CALL(cuMemAlloc(&dGIdx, NE*NNODE*sizeof(int)));
+  tCUMemAlloc = clock() - tStart;
+
+  tStart = clock();
   CUDA_SAFE_CALL(cuMemcpyHtoD(dX, X, NE*NNODE*sizeof(float)));
   CUDA_SAFE_CALL(cuMemcpyHtoD(dY, Y, NE*NNODE*sizeof(float)));
   CUDA_SAFE_CALL(cuMemcpyHtoD(dGIdx, gIdx, NE*NNODE*sizeof(int)));
+  tMemHtoD = clock() - tStart;
 
   // Execute kernal.
   void *args[] = { &dA, &dX, &dY, &dGIdx};
@@ -600,12 +606,20 @@ int main()
   CUDA_SAFE_CALL(cuEventRecord(stop, 0));
   CUDA_SAFE_CALL(cuEventSynchronize(stop));
   CUDA_SAFE_CALL(cuEventElapsedTime(&elapsed, start, stop));
-  std::cout << "GPU Time: " << elapsed << "ms" << std::endl;
   
   CUDA_SAFE_CALL(cuCtxSynchronize());
 
   // Retrieve and print output.
+  tStart = clock();
   CUDA_SAFE_CALL(cuMemcpyDtoH(A, dA, M*N*sizeof(float)));
+  tMemDtoH = clock() - tStart;
+
+  std::cout << "mesh = " << MESH_W << "*" << MESH_H << endl;
+  std::cout << "grid dim.x = " << (NE+BLOCK_Z-1)/BLOCK_Z << endl;
+  std::cout << "GPU Time: " << elapsed << "ms" << std::endl;
+  std::cout << "Time cuMemAlloc = " << tCUMemAlloc/1000.0 << "ms" << std::endl;
+  std::cout << "Time HtoD = " << tMemHtoD/1000.0 << "ms" << std::endl;
+  std::cout << "Time DtoH = " << tMemDtoH/1000.0 << "ms" << std::endl;
 
   for(size_t i=0; i<16; i++) {
     for(size_t j=0; j<16; j++) {
