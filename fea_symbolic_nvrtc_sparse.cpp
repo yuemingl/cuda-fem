@@ -561,12 +561,12 @@ int main()
   CUDA_SAFE_CALL(cuModuleGetFunction(&kernel, module, "fea_kernel"));
 
 // Generate input for execution, and create output buffers.
-  float *X  = new float[ NE*NNODE*sizeof(float) ];
-  float *Y  = new float[ NE*NNODE*sizeof(float) ];
-  int *gIdx = new int[ NE*NNODE*sizeof(int) ];
-  int *rowA  = new int[ NE*(NNODE*NNODE)*sizeof(int) ];
-  int *colA  = new int[ NE*(NNODE*NNODE)*sizeof(int) ];
-  float *A  = new float[ NE*(NNODE*NNODE)*sizeof(float) ];
+  float *X  = new float[ NE*NNODE ];
+  float *Y  = new float[ NE*NNODE ];
+  int *gIdx = new int[ NE*NNODE ];
+  int *rowA  = new int[ NE*(NNODE*NNODE) ];
+  int *colA  = new int[ NE*(NNODE*NNODE) ];
+  float *A  = new float[ NE*(NNODE*NNODE) ];
 
   for(int i=0; i<mesh.elements.size(); i++)
   {
