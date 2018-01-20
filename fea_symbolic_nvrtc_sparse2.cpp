@@ -1,4 +1,4 @@
-//ginac + template + sparse metrix
+//ginac + template + sparse matrix + atomicAdd
 #include <iostream>
 #include <time.h>
 #include <vector>
@@ -189,9 +189,7 @@ public:
       for(int j=0; j<e->nodes.size(); j++) {
         set<int> *nbSet = nbNodes[e->nodes[j]->index];
         for(int jj=0; jj<e->nodes.size(); jj++) {
-          if(j != jj) {
             nbSet->insert(e->nodes[jj]->index);
-          }
         }
       }
     }
@@ -424,8 +422,8 @@ public:
 
 //////////////////////////////////////////////////////////////
 
-#define MESH_W 10L
-#define MESH_H 10L
+#define MESH_W 1000L
+#define MESH_H 100L
 
 #define M (MESH_W+1)*(MESH_H+1) //size of matrix A M by N
 #define N (MESH_W+1)*(MESH_H+1)
@@ -436,7 +434,7 @@ public:
 #define BLOCK_Z ((int)(32*32)/(BLOCK_X*BLOCK_Y)) //number of elements in a block
 #define NDOF 3 //number of DOFs
 #define NNODE 3 //number of nodes
-#define MAX_NEIGHBOR 2*NNODE
+#define MAX_NEIGHBOR (2*NNODE+1)
 
 std::string codeTemplate("                                           \n\
 __constant__ float triW[7] = { 0.06296959f, 0.06619708f, 0.06296959f, 0.06619708f, 0.06296959f, 0.06619708f, 0.11250000f };         \n\
@@ -507,6 +505,7 @@ extern \"C\" __global__ void fea_kernel(float* A,                               
   int li = threadIdx.y / NDOF;                                                                                                             \n\
   int lj = threadIdx.y % NDOF;                                                                                                             \n\
   __shared__ float localFlatMatrix[BLOCK_Y*BLOCK_Z]; //array for the local flat matrices of all the elememnts in the current block         \n\
+  for(int i=0; i<BLOCK_Y*BLOCK_Z; i++) localFlatMatrix[i] = 0.0f;                                                                          \n\
   int lfmIdx = threadIdx.z*BLOCK_Y + threadIdx.y; //local flat matrix index of the integrand of threadIdx.y                                \n\
   float params[3*NNODE]; //parameters array of integrand                                                                                   \n\
                                                                                                                                            \n\
@@ -584,8 +583,8 @@ int main()
 //cout << (std::string("--define-macro=MESH_W=")+std::to_string(MESH_W)).c_str() << endl;
   // Compile the program for compute_30 with fmad disabled.
   const char *opts[] = {"--gpu-architecture=compute_30",
-                        "--define-macro=MESH_W=10000",
-                        "--define-macro=MESH_H=10000",
+                        "--define-macro=MESH_W=1000",
+                        "--define-macro=MESH_H=100",
                         //(std::string("--define-macro=MESH_W=")+std::to_string(MESH_W)).c_str(),
                         //(std::string("--define-macro=MESH_H=")+std::to_string(MESH_H)).c_str(),
                         "--define-macro=M=(MESH_W+1)*(MESH_H+1)",
@@ -596,7 +595,7 @@ int main()
                         "--define-macro=BLOCK_Z=((int)(32*32)/(BLOCK_X*BLOCK_Y))",
                         "--define-macro=NDOF=3",
                         "--define-macro=NNODE=3",
-                        "--define-macro=MAX_NEIGHBOR=2*NNODE",
+                        "--define-macro=MAX_NEIGHBOR=(2*NNODE+1)",
                         "--fmad=false" };
   nvrtcResult compileResult = nvrtcCompileProgram(prog,  // prog
                                                   13,     // numOptions
@@ -719,8 +718,10 @@ int main()
   std::cout << "Time HtoD = " << tMemHtoD/1000.0 << "ms" << std::endl;
   std::cout << "Time DtoH = " << tMemDtoH/1000.0 << "ms" << std::endl;
   for(size_t i=0; i<16 && i<M; i++) {
-    for(size_t j=0; j<gNbrNodeLen[i]; j++)
-      std::cout << "(" << i << "," << colA[i*MAX_NEIGHBOR+j] << ")" << " " << A[i*MAX_NEIGHBOR+j] << std::endl;
+    for(size_t j=0; j<gNbrNodeLen[i]; j++) {
+      std::cout << "(" << i << "," << colA[i*MAX_NEIGHBOR+j] << ")" << " " << A[i*MAX_NEIGHBOR+j] << "    ";
+    }
+    cout << endl;
   }
 
   // Release resources.

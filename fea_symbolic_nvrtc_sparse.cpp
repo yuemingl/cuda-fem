@@ -1,4 +1,4 @@
-//ginac + template + sparse metrix
+//ginac + template + sparse matrix with index list
 #include <iostream>
 #include <time.h>
 #include <vector>
@@ -363,8 +363,8 @@ public:
 
 //////////////////////////////////////////////////////////////
 
-#define MESH_W 10000
-#define MESH_H 10000
+#define MESH_W 2
+#define MESH_H 2
 
 #define M (MESH_W+1)*(MESH_H+1) //size of matrix A M by N
 #define N (MESH_W+1)*(MESH_H+1)
@@ -514,8 +514,8 @@ int main()
 //cout << (std::string("--define-macro=MESH_W=")+std::to_string(MESH_W)).c_str() << endl;
   // Compile the program for compute_30 with fmad disabled.
   const char *opts[] = {"--gpu-architecture=compute_30",
-                        "--define-macro=MESH_W=10000",
-                        "--define-macro=MESH_H=10000",
+                        "--define-macro=MESH_W=2",
+                        "--define-macro=MESH_H=2",
                         //(std::string("--define-macro=MESH_W=")+std::to_string(MESH_W)).c_str(),
                         //(std::string("--define-macro=MESH_H=")+std::to_string(MESH_H)).c_str(),
                         "--define-macro=M=(MESH_W+1)*(MESH_H+1)",
@@ -631,7 +631,7 @@ int main()
   std::cout << "Time cuMemAlloc = " << tCUMemAlloc/1000.0 << "ms" << std::endl;
   std::cout << "Time HtoD = " << tMemHtoD/1000.0 << "ms" << std::endl;
   std::cout << "Time DtoH = " << tMemDtoH/1000.0 << "ms" << std::endl;
-  for(size_t i=0; i<16; i++) {
+  for(size_t i=0; i<16 && i<M; i++) {
       std::cout << "(" << rowA[i] << "," << colA[i] << ")" << " " << A[i] << std::endl;
   }
 
