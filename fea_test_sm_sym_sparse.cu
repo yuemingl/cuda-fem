@@ -1,4 +1,4 @@
-//share memory + hard code symbol output
+//share memory + hard code symbol output + sparse matrix with index list
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
