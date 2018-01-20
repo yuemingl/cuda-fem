@@ -169,31 +169,46 @@ public:
         }
       }
     }
-    //cout << "*********" <<endl;
     for (set<int>::iterator it=nbSet.begin(); it!=nbSet.end(); ++it) {
-    //  cout << *it << " ";
       output.push_back(*it);
     }
-    //cout << flush;
     sort(output.begin(), output.end());
   }
 
-  /*
-    Return a list of neighbor nodes for every nodes
-  */
+  /**
+   * Return a list of neighbor nodes for every nodes
+   */
   void getNeighborNodesList(int* lengthList, int maxLength, int *indexList)
   {
+    vector< set<int>* > nbNodes;
+    for(int i=0; i<nodes.size(); i++)
+      nbNodes.push_back(new set<int>());
+
+    for(int i=0; i<elements.size(); i++) {
+      Element *e = elements[i];
+      for(int j=0; j<e->nodes.size(); j++) {
+        set<int> *nbSet = nbNodes[e->nodes[j]->index];
+        for(int jj=0; jj<e->nodes.size(); jj++) {
+          if(j != jj) {
+            nbSet->insert(e->nodes[jj]->index);
+          }
+        }
+      }
+    }
+
     for(int i=0; i<nodes.size(); i++)
     {
       vector<int> nb;
-      getNeighborNodes(nodes[i]->index, nb);
-      //for (vector<int>::iterator it=nb.begin(); it!=nb.end(); ++it) {
-      //  cout << *it << " ";
-      //}
+      set<int> *nbSet = nbNodes[i];
+      for (set<int>::iterator it=nbSet->begin(); it!=nbSet->end(); ++it)
+        nb.push_back(*it);
+      sort(nb.begin(), nb.end());
       lengthList[i] = nb.size();
       for(int j=0; j<nb.size(); j++)
         indexList[i*maxLength + j] = nb[j];
+      delete nbSet;
     }
+
   }
 };
 
@@ -409,8 +424,8 @@ public:
 
 //////////////////////////////////////////////////////////////
 
-#define MESH_W 1000L
-#define MESH_H 1000L
+#define MESH_W 10L
+#define MESH_H 10L
 
 #define M (MESH_W+1)*(MESH_H+1) //size of matrix A M by N
 #define N (MESH_W+1)*(MESH_H+1)
