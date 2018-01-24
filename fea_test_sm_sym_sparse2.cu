@@ -403,7 +403,7 @@ cudaError_t assembleWithCuda()
     return cudaStatus;
 }
 
-// nvcc --std=c++11 fea_test_sm_sym_sparse.cu -o fea_test_sm_sym_sparse
+// nvcc -O2 --std=c++11 fea_test_sm_sym_sparse.cu -o fea_test_sm_sym_sparse
 // /usr/local/cuda-8.0/bin/nvcc --std=c++11 fea_test_sm_sym_sparse2.cu -o fea_test_sm_sym_sparse2
 // /usr/local/cuda-9.1/bin/nvcc --std=c++11 fea_test_sm_sym_sparse2.cu -o fea_test_sm_sym_sparse2
 int main()

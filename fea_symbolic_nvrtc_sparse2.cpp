@@ -550,7 +550,7 @@ extern \"C\" __global__ void fea_kernel(float* A,                               
 //////////////////////////////////////////////////////////////
 /*
 export CUDA_PATH=/usr/local/cuda-9.1
-g++ --std=c++11 fea_symbolic_nvrtc_sparse2.cpp -o fea_symbolic_nvrtc_sparse2 -I $CUDA_PATH/include -L $CUDA_PATH/lib64 -lginac -lnvrtc -lcuda -Wl,-rpath,$CUDA_PATH/lib64
+g++ -O2 --std=c++11 fea_symbolic_nvrtc_sparse2.cpp -o fea_symbolic_nvrtc_sparse2 -I $CUDA_PATH/include -L $CUDA_PATH/lib64 -lginac -lnvrtc -lcuda -Wl,-rpath,$CUDA_PATH/lib64
 */
 int main()
 {
